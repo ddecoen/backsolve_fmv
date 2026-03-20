@@ -421,7 +421,7 @@ with tab_cap:
             color_discrete_sequence=px.colors.sequential.Blues_r, hole=0.35,
         )
         fig_pie.update_layout(margin=dict(t=40, b=20, l=20, r=20))
-        st.plotly_chart(fig_pie, width="stretch")
+        st.plotly_chart(fig_pie, use_container_width=True)
 
         issues = validate_cap_table(current_ct)
         if issues:
@@ -640,7 +640,7 @@ with tab_results:
             xaxis_title="Breakpoint", showlegend=False,
             margin=dict(t=50, b=40, l=60, r=20),
         )
-        st.plotly_chart(fig_waterfall, width="stretch")
+        st.plotly_chart(fig_waterfall, use_container_width=True)
 
         # 4. Equity Value Allocation Pie
         st.markdown("### 🥧 Equity Value Allocation")
@@ -653,7 +653,7 @@ with tab_results:
                 color_discrete_sequence=px.colors.sequential.Teal, hole=0.35,
             )
             fig_alloc_pie.update_layout(margin=dict(t=40, b=20, l=20, r=20))
-            st.plotly_chart(fig_alloc_pie, width="stretch")
+            st.plotly_chart(fig_alloc_pie, use_container_width=True)
 
         st.markdown("---")
 
@@ -702,7 +702,7 @@ with tab_results:
             xaxis_title="Time to Liquidity", yaxis_title="Volatility",
             margin=dict(t=50, b=50, l=80, r=20),
         )
-        st.plotly_chart(fig_heat, width="stretch")
+        st.plotly_chart(fig_heat, use_container_width=True)
 
         st.markdown("---")
 

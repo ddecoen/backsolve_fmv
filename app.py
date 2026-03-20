@@ -203,6 +203,7 @@ with st.sidebar:
         except Exception:
             pass
         st.session_state["run_requested"] = True
+        st.success("Valuation running — see Results tab.")
 
 
 # ===================================================================

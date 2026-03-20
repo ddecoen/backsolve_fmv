@@ -28,13 +28,14 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .block-container {padding-top: 1.5rem;}
+    .block-container {padding-top: 2.5rem;}
     .metric-card {
         background: #f8fafc; border: 1px solid #e2e8f0;
-        border-radius: 0.75rem; padding: 1.25rem; text-align: center;
+        border-radius: 0.75rem; padding: 1rem 0.75rem;
+        text-align: center; overflow: hidden;
     }
-    .metric-card h3 {margin:0; color:#334155; font-size:0.85rem; font-weight:600;}
-    .metric-card p  {margin:0.25rem 0 0 0; color:#0f172a; font-size:1.6rem; font-weight:700;}
+    .metric-card h3 {margin:0; color:#334155; font-size:0.75rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .metric-card p  {margin:0.25rem 0 0 0; color:#0f172a; font-size:1.3rem; font-weight:700; white-space:nowrap;}
     .section-hdr {
         border-bottom: 2px solid #3b82f6;
         padding-bottom: 0.4rem; margin-bottom: 1rem; color: #1e40af;
@@ -564,13 +565,13 @@ with tab_results:
         m1, m2, m3 = st.columns(3)
         m1.markdown(
             f"""<div class="metric-card">
-            <h3>Implied Total Equity Value</h3>
+            <h3>Total Equity Value</h3>
             <p>${result.total_equity_value:,.0f}</p>
             </div>""", unsafe_allow_html=True,
         )
         m2.markdown(
             f"""<div class="metric-card">
-            <h3>Common Stock FMV (after DLOM)</h3>
+            <h3>Common FMV (post-DLOM)</h3>
             <p>${result.common_fmv:,.4f}</p>
             </div>""", unsafe_allow_html=True,
         )

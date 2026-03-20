@@ -220,7 +220,10 @@ with tab_cap:
     st.info(
         "Enter your company's capitalization table below. You can upload a Carta "
         "export (CSV) or fill in the details manually. The cap table drives the "
-        "equity-waterfall analysis used in the OPM backsolve."
+        "equity-waterfall analysis used in the OPM backsolve.\n\n"
+        "**Important:** Enter **outstanding shares** (issued shares only) for each class — "
+        "not fully diluted. The model computes the fully-diluted share count automatically "
+        "by combining equity classes + options + warrants."
     )
 
     input_method = st.radio(
@@ -274,6 +277,11 @@ with tab_cap:
     # ---- Manual input path ----------------------------------------------
     else:
         st.markdown("### Equity Classes")
+        st.caption(
+            "Enter **outstanding (issued) shares** per class. Do not enter fully-diluted counts. "
+            "Options and warrants are entered separately below and the model calculates "
+            "the fully-diluted total automatically."
+        )
         for idx, ec in enumerate(st.session_state["equity_classes"]):
             with st.container(border=True):
                 cols = st.columns([2, 1.2, 1.5, 1.2, 1.2, 1, 1.2, 1.8])
@@ -283,7 +291,8 @@ with tab_cap:
                     index=0 if ec["type"] == "Common" else 1, key=f"ec_type_{idx}",
                 )
                 ec["shares"] = cols[2].number_input(
-                    "Shares", min_value=1, value=int(ec["shares"]), step=1000, key=f"ec_shares_{idx}",
+                    "Shares Outstanding", min_value=1, value=int(ec["shares"]), step=1000, key=f"ec_shares_{idx}",
+                    help="Issued shares only — not fully diluted.",
                 )
                 ec["issue_price"] = cols[3].number_input(
                     "LP/Share ($)", min_value=0.0, value=float(ec["issue_price"]),
@@ -325,6 +334,10 @@ with tab_cap:
 
         # — Options -------------------------------------------------------
         st.markdown("### Options")
+        st.caption(
+            "Enter **granted/exercisable** options only. Ungranted pool shares are tracked "
+            "separately and do not affect the valuation."
+        )
         if not st.session_state["option_grants"]:
             st.caption("No option pools added yet.")
         for idx, og in enumerate(st.session_state["option_grants"]):
@@ -332,7 +345,8 @@ with tab_cap:
                 cols = st.columns([2, 2, 2])
                 og["name"] = cols[0].text_input("Name", value=og["name"], key=f"og_name_{idx}")
                 og["shares"] = cols[1].number_input(
-                    "Shares Outstanding", min_value=1, value=int(og["shares"]), step=1000, key=f"og_shares_{idx}",
+                    "Granted Shares", min_value=1, value=int(og["shares"]), step=1000, key=f"og_shares_{idx}",
+                    help="Granted/exercisable options — not the total pool size.",
                 )
                 og["exercise_price"] = cols[2].number_input(
                     "Exercise Price ($)", min_value=0.0, value=float(og["exercise_price"]),
@@ -341,6 +355,9 @@ with tab_cap:
 
         # — Warrants ------------------------------------------------------
         st.markdown("### Warrants")
+        st.caption(
+            "Enter **outstanding/exercisable** warrants only."
+        )
         if not st.session_state["warrant_grants"]:
             st.caption("No warrants added yet.")
         for idx, wg in enumerate(st.session_state["warrant_grants"]):
@@ -348,7 +365,8 @@ with tab_cap:
                 cols = st.columns([2, 2, 2])
                 wg["name"] = cols[0].text_input("Name", value=wg["name"], key=f"wg_name_{idx}")
                 wg["shares"] = cols[1].number_input(
-                    "Shares Outstanding", min_value=1, value=int(wg["shares"]), step=1000, key=f"wg_shares_{idx}",
+                    "Outstanding Shares", min_value=1, value=int(wg["shares"]), step=1000, key=f"wg_shares_{idx}",
+                    help="Exercisable warrants only.",
                 )
                 wg["exercise_price"] = cols[2].number_input(
                     "Exercise Price ($)", min_value=0.0, value=float(wg["exercise_price"]),

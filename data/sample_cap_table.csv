@@ -1,0 +1,7 @@
+Share Class,Type,Shares Outstanding,Issue Price,Liquidation Preference Multiple,Seniority,Conversion Ratio,Participation,Participation Cap,Shares Available
+Common Stock,Common,8000000,,,,1.0,,,
+Series Seed,Preferred,1500000,0.50,1x,1,1.0,Non-participating,,
+Series A,Preferred,3000000,2.00,1x,2,1.0,Non-participating,,
+Series B,Preferred,2000000,5.00,1x,3,1.0,Non-participating,,
+2023 Option Pool,Option,1200000,0.75,,,,,,500000
+Warrants,Warrant,300000,1.50,,,,,,

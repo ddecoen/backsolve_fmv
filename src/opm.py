@@ -560,8 +560,21 @@ def backsolve_equity_value(
     else:
         common_pps = 0.0
 
+    # ── Hybrid Weighted Approach ──────────────────────────────────────
+    # If a secondary common stock transaction price is provided,
+    # blend the OPM-indicated value with the observed market price.
+    opm_indicated_common = common_pps  # OPM result (pre-DLOM)
+    secondary_price = params.secondary_price
+    secondary_weight = params.secondary_weight
+
+    if secondary_price > 0 and 0 < secondary_weight <= 1.0:
+        opm_weight = 1.0 - secondary_weight
+        blended_pre_dlom = (opm_indicated_common * opm_weight) + (secondary_price * secondary_weight)
+    else:
+        blended_pre_dlom = opm_indicated_common
+
     dlom = params.dlom_percent
-    common_fmv = common_pps * (1.0 - dlom)
+    common_fmv = blended_pre_dlom * (1.0 - dlom)
 
     return ValuationResult(
         total_equity_value=solved_equity_value,
@@ -571,4 +584,8 @@ def backsolve_equity_value(
         tranche_values=tranche_values,
         allocations=alloc_fracs,
         class_total_values=class_total_values,
+        opm_indicated_common=opm_indicated_common,
+        secondary_price_used=secondary_price,
+        secondary_weight=secondary_weight,
+        blended_common_pre_dlom=blended_pre_dlom,
     )

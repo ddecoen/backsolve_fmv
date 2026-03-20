@@ -115,6 +115,9 @@ class ValuationParams:
     known_share_price: float   # Known price per share from recent transaction
     known_class_name: str      # Which class the known price applies to
     dlom_percent: float = 0.0  # Discount for lack of marketability (e.g., 0.25 for 25%)
+    # Secondary transaction (hybrid weighted approach)
+    secondary_price: float = 0.0        # Secondary common stock transaction price per share
+    secondary_weight: float = 0.0       # Weight for secondary (0.0 to 1.0), OPM weight = 1 - this
 
 
 @dataclass
@@ -127,3 +130,8 @@ class ValuationResult:
     tranche_values: List[float]             # Value of each tranche
     allocations: List[Dict[str, float]]     # Per-tranche allocation fractions
     class_total_values: Dict[str, float]    # class_name -> total value allocated
+    # Hybrid weighted approach fields
+    opm_indicated_common: float = 0.0       # OPM-indicated common FMV (pre-DLOM)
+    secondary_price_used: float = 0.0       # Secondary transaction price
+    secondary_weight: float = 0.0           # Weight given to secondary
+    blended_common_pre_dlom: float = 0.0    # Blended value before DLOM

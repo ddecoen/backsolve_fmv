@@ -497,6 +497,26 @@ with tab_params:
             )
 
         st.markdown("---")
+        st.markdown("#### Secondary Common Stock Transaction (Hybrid)")
+        st.caption(
+            "If a secondary market transaction in common stock has occurred, enter the "
+            "price and weighting below. The final FMV will blend the OPM-indicated value "
+            "with this observed market price."
+        )
+        sec_col1, sec_col2, sec_col3 = st.columns(3)
+        secondary_price = sec_col1.number_input(
+            "Secondary Price/Share ($)", min_value=0.0, value=0.0,
+            step=0.01, format="%.4f",
+            help="Price per common share observed in a secondary transaction. Leave at 0 to disable.",
+        )
+        secondary_weight_pct = sec_col2.number_input(
+            "Secondary Weight (%)", min_value=0, max_value=100, value=0, step=5,
+            help="Weight given to the secondary transaction (0-100%). OPM receives the remainder.",
+        )
+        opm_weight_display = 100 - secondary_weight_pct
+        sec_col3.metric("OPM Weight (%)", f"{opm_weight_display}%")
+
+        st.markdown("---")
         st.markdown("#### Discount for Lack of Marketability (DLOM)")
         dlom_method = st.radio("DLOM Method", ["Manual Input", "Finnerty Model"], horizontal=True)
         if dlom_method == "Manual Input":
@@ -527,6 +547,8 @@ with tab_params:
             known_share_price=known_pps,
             known_class_name=known_class,
             dlom_percent=dlom_value,
+            secondary_price=secondary_price,
+            secondary_weight=secondary_weight_pct / 100.0,
         )
         st.toast("Parameters saved ✅")
 
@@ -542,6 +564,11 @@ with tab_params:
             c4.metric("Risk-Free Rate", f"{vp.risk_free_rate:.2%}")
             c5.metric("Time to Liquidity", f"{vp.time_to_liquidity:.2f} yrs")
             c6.metric("DLOM", f"{vp.dlom_percent:.1%}")
+            if vp.secondary_price > 0:
+                c7, c8, c9 = st.columns(3)
+                c7.metric("Secondary Price", f"${vp.secondary_price:,.4f}")
+                c8.metric("Secondary Weight", f"{vp.secondary_weight:.0%}")
+                c9.metric("OPM Weight", f"{1.0 - vp.secondary_weight:.0%}")
     else:
         st.caption("No parameters saved yet — fill in the form above and click **Save Parameters**.")
 
@@ -621,6 +648,74 @@ reflecting that preferred holders can always elect to convert.
             <p>{dlom_applied:.1%}</p>
             </div>""", unsafe_allow_html=True,
         )
+
+        # Hybrid audit trail
+        if result.secondary_weight > 0 and result.secondary_price_used > 0:
+            st.markdown("### 📋 Hybrid Weighted Approach — Audit Trail")
+            audit_col1, audit_col2 = st.columns(2)
+            with audit_col1:
+                st.markdown("**Indicated Values (Pre-DLOM)**")
+                audit_data = pd.DataFrame([
+                    {
+                        "Method": "OPM Backsolve (Indicated)",
+                        "Common Value/Share": f"${result.opm_indicated_common:,.4f}",
+                        "Weight": f"{1.0 - result.secondary_weight:.0%}",
+                        "Contribution": f"${result.opm_indicated_common * (1.0 - result.secondary_weight):,.4f}",
+                    },
+                    {
+                        "Method": "Secondary Transaction (Observed)",
+                        "Common Value/Share": f"${result.secondary_price_used:,.4f}",
+                        "Weight": f"{result.secondary_weight:.0%}",
+                        "Contribution": f"${result.secondary_price_used * result.secondary_weight:,.4f}",
+                    },
+                    {
+                        "Method": "Blended Common FMV (Pre-DLOM)",
+                        "Common Value/Share": f"${result.blended_common_pre_dlom:,.4f}",
+                        "Weight": "100%",
+                        "Contribution": f"${result.blended_common_pre_dlom:,.4f}",
+                    },
+                    {
+                        "Method": f"Final Common FMV (Post-{dlom_applied:.0%} DLOM)",
+                        "Common Value/Share": f"${result.common_fmv:,.4f}",
+                        "Weight": "",
+                        "Contribution": f"${result.common_fmv:,.4f}",
+                    },
+                ])
+                st.dataframe(audit_data, width="stretch", hide_index=True)
+
+            with audit_col2:
+                st.markdown("**Value Bridge**")
+                bridge_fig = go.Figure(go.Waterfall(
+                    x=["OPM Indicated", "Secondary Adj.", "Blended", "DLOM", "Final FMV"],
+                    y=[
+                        result.opm_indicated_common,
+                        result.blended_common_pre_dlom - result.opm_indicated_common,
+                        0,
+                        -(result.blended_common_pre_dlom * dlom_applied),
+                        0,
+                    ],
+                    measure=["absolute", "relative", "total", "relative", "total"],
+                    connector={"line": {"color": "#3b82f6"}},
+                    increasing={"marker": {"color": "#2563eb"}},
+                    decreasing={"marker": {"color": "#dc2626"}},
+                    totals={"marker": {"color": "#059669"}},
+                    text=[
+                        f"${result.opm_indicated_common:,.4f}",
+                        f"+${result.blended_common_pre_dlom - result.opm_indicated_common:,.4f}",
+                        f"${result.blended_common_pre_dlom:,.4f}",
+                        f"-${result.blended_common_pre_dlom * dlom_applied:,.4f}",
+                        f"${result.common_fmv:,.4f}",
+                    ],
+                    textposition="outside",
+                ))
+                bridge_fig.update_layout(
+                    title="Common FMV Value Bridge",
+                    yaxis_title="$/Share",
+                    showlegend=False,
+                    margin=dict(t=50, b=40, l=60, r=20),
+                    height=400,
+                )
+                st.plotly_chart(bridge_fig, use_container_width=True)
 
         st.markdown("---")
 

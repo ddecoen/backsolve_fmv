@@ -153,7 +153,7 @@ with st.sidebar:
     st.divider()
 
     # Load sample data
-    if st.button("📋 Load Sample Data", use_container_width=True):
+    if st.button("📋 Load Sample Data", width="stretch"):
         try:
             sample = get_sample_cap_table()
             st.session_state["cap_table"] = sample
@@ -179,14 +179,28 @@ with st.sidebar:
                 for w in sample.warrants
             ]
             st.session_state["sample_loaded"] = True
-            st.success("Sample data loaded!")
+            # Auto-set default valuation params for sample data
+            st.session_state["valuation_params"] = ValuationParams(
+                volatility=0.50,
+                risk_free_rate=0.045,
+                time_to_liquidity=3.0,
+                known_share_price=5.00,
+                known_class_name="Series B",
+                dlom_percent=0.25,
+            )
+            st.success("Sample data loaded with default params (Series B @ $5.00)!")
         except Exception as exc:
             st.error(f"Failed to load sample data: {exc}")
 
     st.divider()
 
-    run_clicked = st.button("🚀 Run Valuation", type="primary", use_container_width=True)
+    run_clicked = st.button("🚀 Run Valuation", type="primary", width="stretch")
     if run_clicked:
+        # Auto-build cap table from current state
+        try:
+            st.session_state["cap_table"] = _build_cap_table_from_state()
+        except Exception:
+            pass
         st.session_state["run_requested"] = True
 
 
@@ -252,7 +266,7 @@ with tab_cap:
                         "LP/Share": f"${ec.liquidation_preference_per_share:,.4f}" if ec.is_preferred else "—",
                         "Seniority": ec.seniority,
                     })
-                st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(preview_rows), width="stretch", hide_index=True)
             except Exception as exc:
                 st.error(f"Error parsing CSV: {exc}")
 
@@ -396,7 +410,7 @@ with tab_cap:
                 "Total LP": "—",
             })
 
-        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
 
         # Ownership pie chart
         pie_labels = [r["Class"] for r in summary_rows]
@@ -407,7 +421,7 @@ with tab_cap:
             color_discrete_sequence=px.colors.sequential.Blues_r, hole=0.35,
         )
         fig_pie.update_layout(margin=dict(t=40, b=20, l=20, r=20))
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width="stretch")
 
         issues = validate_cap_table(current_ct)
         if issues:
@@ -471,7 +485,7 @@ with tab_params:
         else:
             dlom_pct = None
 
-        submitted = st.form_submit_button("💾 Save Parameters", use_container_width=True)
+        submitted = st.form_submit_button("💾 Save Parameters", width="stretch")
 
     if submitted:
         vol_dec = volatility / 100.0
@@ -595,7 +609,7 @@ with tab_results:
                 "Total Value": f"${tv:,.0f}",
                 "% of Equity": f"{tv / total_value * 100:.1f}%",
             })
-        st.dataframe(pd.DataFrame(alloc_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(alloc_rows), width="stretch", hide_index=True)
 
         st.markdown("---")
 
@@ -626,7 +640,7 @@ with tab_results:
             xaxis_title="Breakpoint", showlegend=False,
             margin=dict(t=50, b=40, l=60, r=20),
         )
-        st.plotly_chart(fig_waterfall, use_container_width=True)
+        st.plotly_chart(fig_waterfall, width="stretch")
 
         # 4. Equity Value Allocation Pie
         st.markdown("### 🥧 Equity Value Allocation")
@@ -639,7 +653,7 @@ with tab_results:
                 color_discrete_sequence=px.colors.sequential.Teal, hole=0.35,
             )
             fig_alloc_pie.update_layout(margin=dict(t=40, b=20, l=20, r=20))
-            st.plotly_chart(fig_alloc_pie, use_container_width=True)
+            st.plotly_chart(fig_alloc_pie, width="stretch")
 
         st.markdown("---")
 
@@ -688,7 +702,7 @@ with tab_results:
             xaxis_title="Time to Liquidity", yaxis_title="Volatility",
             margin=dict(t=50, b=50, l=80, r=20),
         )
-        st.plotly_chart(fig_heat, use_container_width=True)
+        st.plotly_chart(fig_heat, width="stretch")
 
         st.markdown("---")
 
@@ -708,4 +722,4 @@ with tab_results:
                 "Tranche Value ($)": f"${tv:,.2f}",
                 "Allocation": alloc_detail or "—",
             })
-        st.dataframe(pd.DataFrame(bp_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(bp_rows), width="stretch", hide_index=True)

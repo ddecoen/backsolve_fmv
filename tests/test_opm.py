@@ -246,6 +246,52 @@ class TestBacksolveEquityValue:
 
 
 # ====================================================================
+# Conversion floor tests
+# ====================================================================
+
+class TestConversionFloor:
+    def test_preferred_geq_common(self):
+        """All preferred per-share values must be >= common per-share."""
+        ct = get_sample_cap_table()
+        params = ValuationParams(
+            volatility=0.7, risk_free_rate=0.045, time_to_liquidity=3.0,
+            known_share_price=5.00, known_class_name="Series B", dlom_percent=0.20,
+        )
+        result = backsolve_equity_value(ct, params)
+        common_pps = result.per_share_values["Common Stock"]
+        for ec in ct.preferred_classes:
+            assert result.per_share_values[ec.name] >= common_pps - 1e-6
+
+    def test_floor_applied_when_binding(self):
+        """If OPM would produce preferred < common, floor kicks in."""
+        from src.opm import apply_conversion_floor
+        ct = CapTable(equity_classes=[
+            EquityClass(name="Common", shares_outstanding=10_000_000),
+            EquityClass(
+                name="Pref A", shares_outstanding=500_000, is_preferred=True,
+                liquidation_preference_per_share=0.01, seniority=1,
+            ),
+        ])
+        raw = {"Common": 2.00, "Pref A": 0.50}
+        floored = apply_conversion_floor(raw, ct)
+        assert floored["Pref A"] >= floored["Common"]
+
+    def test_floor_preserves_higher_values(self):
+        """Floor should not reduce preferred values that are already above common."""
+        from src.opm import apply_conversion_floor
+        ct = CapTable(equity_classes=[
+            EquityClass(name="Common", shares_outstanding=10_000_000),
+            EquityClass(
+                name="Pref A", shares_outstanding=1_000_000, is_preferred=True,
+                liquidation_preference_per_share=5.0, seniority=1,
+            ),
+        ])
+        raw = {"Common": 2.00, "Pref A": 8.00}
+        floored = apply_conversion_floor(raw, ct)
+        assert floored["Pref A"] == 8.00  # unchanged
+
+
+# ====================================================================
 # Validation tests
 # ====================================================================
 

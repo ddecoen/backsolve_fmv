@@ -4,6 +4,22 @@ Option Pricing Method (OPM) Backsolve Engine.
 Implements the OPM backsolve approach for 409A fair market value determination.
 Supports non-participating, full-participating, and capped-participating preferred stock,
 along with options and warrants.
+
+The waterfall is modeled as a 3-tranche structure:
+
+  Tranche 1 ($0 to Total LP):
+      Preferred classes receive their liquidation preferences by seniority
+      (most senior first). Common and options receive $0.
+
+  Tranche 2 (Total LP to Conversion Point):
+      Common shares and options receive value. Non-participating preferred
+      receives $0 in this region (already satisfied by its LP).
+      Participating preferred continues to receive value alongside common.
+
+  Tranche 3 (Post-Conversion):
+      All classes share pro-rata on a fully-diluted, as-converted basis.
+      Non-participating preferred has converted to common, giving up its LP
+      in exchange for proportional upside.
 """
 
 import numpy as np
@@ -24,6 +40,21 @@ def compute_breakpoints(cap_table: CapTable) -> Tuple[List[float], List[Dict[str
     The breakpoints represent total equity values at which the marginal dollar
     distribution changes. Between consecutive breakpoints, each equity class
     receives a fixed fraction of the incremental value.
+
+    The waterfall proceeds as follows:
+
+    1. **LP Tranches** ($0 → Total LP): Each preferred class, in seniority
+       order (most senior first), receives 100 % of marginal dollars until
+       its liquidation preference is satisfied.
+
+    2. **Above-LP Tranches** (Total LP → Conversion Points): Common, options,
+       participating preferred, and any already-converted preferred share
+       marginal dollars.  Non-participating preferred that has not yet reached
+       its conversion point receives $0 in this region.
+
+    3. **Post-Conversion Tranche**: After all non-participating preferred
+       classes have converted, every class shares pro-rata on a fully-diluted,
+       as-converted basis.
 
     Returns
     -------
@@ -129,7 +160,15 @@ def compute_breakpoints(cap_table: CapTable) -> Tuple[List[float], List[Dict[str
     converted_classes: set = set()
     capped_classes: set = set()
 
+    # Pre-conversion: classes whose conversion point is at or below total LP
+    # are already better off converting at the LP boundary.  Treat them as
+    # converted before we begin building the above-LP tranches.
+    for val, ec in conversion_events:
+        if val <= total_lp:
+            converted_classes.add(ec.name)
+
     # Merge conversion_events and cap_events into a single sorted timeline
+    # (only events strictly above total LP are actual breakpoints)
     all_events: List[Tuple[float, str, EquityClass]] = []
     for val, ec in conversion_events:
         if val > total_lp:
@@ -370,6 +409,33 @@ def allocate_value(
     return per_share
 
 
+def apply_conversion_floor(
+    per_share: Dict[str, float],
+    cap_table: CapTable,
+) -> Dict[str, float]:
+    """
+    Enforce conversion floor: preferred per-share >= common per-share × conversion_ratio.
+
+    Preferred stockholders can always convert to common, so their shares
+    can never be worth less than the as-converted common equivalent.
+    """
+    floored = dict(per_share)
+
+    # Find common per-share value (use first common class)
+    common_pps = 0.0
+    for ec in cap_table.common_classes:
+        if ec.shares_outstanding > 0:
+            common_pps = max(common_pps, floored.get(ec.name, 0.0))
+
+    # Apply floor to each preferred class
+    for ec in cap_table.preferred_classes:
+        floor_value = common_pps * ec.conversion_ratio
+        if floored.get(ec.name, 0.0) < floor_value:
+            floored[ec.name] = floor_value
+
+    return floored
+
+
 def backsolve_equity_value(
     cap_table: CapTable,
     params: ValuationParams,
@@ -379,6 +445,11 @@ def backsolve_equity_value(
 
     Uses Brent's method to find the total equity value such that the
     OPM allocation produces the known per-share price for the specified class.
+
+    The backsolve objective function uses raw (un-floored) OPM allocations.
+    After solving, the conversion floor is applied to final per-share values
+    so that preferred holders are never valued below their as-converted
+    common equivalent.
 
     Parameters
     ----------
@@ -406,6 +477,8 @@ def backsolve_equity_value(
             raise ValueError(f"Known class '{known_class}' not found in cap table.")
 
     # Objective function: difference between computed and known price
+    # NOTE: uses raw allocations WITHOUT the conversion floor so that
+    # the root-finding operates on the monotonic OPM surface.
     def objective(equity_value: float) -> float:
         per_share = allocate_value(equity_value, cap_table, params)
         computed_price = per_share.get(known_class, 0.0)
@@ -448,8 +521,12 @@ def backsolve_equity_value(
     # Solve
     solved_equity_value = brentq(objective, lower, upper, xtol=1e-4, rtol=1e-8, maxiter=200)
 
-    # Compute final allocations
+    # Compute final allocations (raw, without floor for the objective)
     per_share = allocate_value(solved_equity_value, cap_table, params)
+
+    # Apply conversion floor: preferred >= common × conversion_ratio
+    per_share = apply_conversion_floor(per_share, cap_table)
+
     breakpoints, alloc_fracs = compute_breakpoints(cap_table)
 
     # Compute tranche values for reporting

@@ -182,12 +182,12 @@ with st.sidebar:
             st.session_state["sample_loaded"] = True
             # Auto-set default valuation params for sample data
             st.session_state["valuation_params"] = ValuationParams(
-                volatility=0.50,
+                volatility=0.70,
                 risk_free_rate=0.045,
                 time_to_liquidity=3.0,
                 known_share_price=5.00,
                 known_class_name="Series B",
-                dlom_percent=0.25,
+                dlom_percent=0.20,
             )
             st.success("Sample data loaded with default params (Series B @ $5.00)!")
         except Exception as exc:
@@ -475,7 +475,7 @@ with tab_params:
                 help="The equity class whose price-per-share is known from a recent transaction.",
             )
             known_pps = st.number_input(
-                "Known Price Per Share ($)", min_value=0.01, value=5.00,
+                "Known Price Per Share ($)", min_value=0.01, value=4.40,
                 step=0.01, format="%.4f",
                 help="Price per share from the known transaction.",
             )
@@ -483,7 +483,7 @@ with tab_params:
         with col_right:
             st.markdown("#### Market Assumptions")
             volatility = st.slider(
-                "Expected Volatility (%)", min_value=20, max_value=100, value=50, step=1,
+                "Expected Volatility (%)", min_value=20, max_value=100, value=70, step=1,
                 help="Annualised equity volatility used in the OPM Black-Scholes framework.",
             )
             risk_free_rate = st.number_input(
@@ -499,7 +499,7 @@ with tab_params:
         st.markdown("#### Discount for Lack of Marketability (DLOM)")
         dlom_method = st.radio("DLOM Method", ["Manual Input", "Finnerty Model"], horizontal=True)
         if dlom_method == "Manual Input":
-            dlom_pct = st.slider("DLOM (%)", min_value=0, max_value=50, value=25, step=1,
+            dlom_pct = st.slider("DLOM (%)", min_value=0, max_value=50, value=20, step=1,
                                  help="Manually specified DLOM to apply to common stock.")
         else:
             dlom_pct = None
@@ -578,6 +578,26 @@ with tab_results:
             "then click **🚀 Run Valuation** in the sidebar."
         )
     else:
+        # Waterfall explanation
+        with st.expander("ℹ️ How the OPM Waterfall Works", expanded=False):
+            st.markdown("""
+**The model uses a 3-tranche liquidation waterfall:**
+
+1. **Tranche 1 — Liquidation Preferences** ($0 to Total LP): Value is allocated 100% to preferred 
+   classes in order of seniority (most senior first). Common stock and options receive $0 in this range.
+
+2. **Tranche 2 — Common Upside** (Total LP to Conversion Point): Value is allocated to common stock 
+   and the employee option pool only. Preferred classes receive $0 here — they have already received 
+   their full liquidation preference.
+
+3. **Tranche 3 — Pro-Rata Sharing** (Above Conversion Point): At this equity value, it becomes 
+   mathematically optimal for preferred to convert to common. All classes share pro-rata on an 
+   as-if-converted basis.
+
+**Conversion Floor:** Preferred per-share values are floored at the common stock value × conversion ratio, 
+reflecting that preferred holders can always elect to convert.
+            """)
+
         # 1. Key Metrics
         st.markdown("### 🔑 Key Metrics")
         m1, m2, m3 = st.columns(3)
